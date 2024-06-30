@@ -2,6 +2,10 @@ from robocorp.tasks import task
 from robocorp import browser
 from RPA.HTTP import HTTP
 from RPA.Tables import Tables
+from RPA.PDF import PDF
+from RPA.Archive import Archive
+
+import os
 
 @task
 def order_robots_from_RobotSpareBin():
@@ -13,6 +17,8 @@ def order_robots_from_RobotSpareBin():
     Creates ZIP archive of the receipts and the images.
     """
     open_robot_order_website()
+    # TODO: Archive the receipts into individual archives?
+    # archive_receipts()
 
 
 def open_robot_order_website():
@@ -55,6 +61,43 @@ def fill_the_form(order):
     while True:
         page.click("#order")
         if page.query_selector("#order-another"):
+            screenshot_path = screenshot_robot(str(order["Order number"]))
+            pdf_path = store_receipt_as_pdf(str(order["Order number"]))
+            embed_screenshot_to_receipt(screenshot=screenshot_path, pdf_file=pdf_path)
             page.click("#order-another")
             close_annoying_modal()
             break
+        
+
+def store_receipt_as_pdf(order_number):
+    """Saves the order as a pdf file"""
+    page = browser.page()
+    pdf = PDF()
+    order_html = page.locator("#receipt").inner_html()
+    pdf_path = os.path.join("output", "receipts", order_number, '.pdf')
+    pdf.html_to_pdf(order_html, pdf_path)
+    return pdf_path
+
+
+def screenshot_robot(order_number):
+    """Saves a screenshot of the order"""
+    # TODO: Currently, the browser is too small to screenshot the entire image of a robot
+    page = browser.page()
+    screenshot_path = os.path.join("output", "receipts", order_number, '.png')
+    page.locator("#robot-preview-image").screenshot(path=screenshot_path)
+    return screenshot_path
+
+
+def embed_screenshot_to_receipt(screenshot, pdf_file):
+    """Embeds a screenshot of the robot into the pdf file of the receipt"""
+    pdf = PDF()
+    pdf.add_watermark_image_to_pdf(screenshot, pdf_file, pdf_file)
+    
+
+# TODO: deal with ValueError: No files found to archive
+# def archive_receipts():
+#     """Archives the receipts"""
+#     lib = Archive()
+#     # receipt_path = os.path.join(".", "output", "receipts")
+#     # archive_path = os.path.join(".", "output", "receipts.zip")
+#     lib.archive_folder_with_zip("./output/receipts", "./output/receipts.zip")
